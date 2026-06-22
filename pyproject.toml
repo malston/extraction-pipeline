@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "contract-extraction-pipeline"
+version = "0.1.0"
+description = "CCA Domain 4 build exercise: a forced-tool extraction pipeline whose fabrication-trap document survives as NOT_SPECIFIED/null end to end -- nullable schema, format-only retry, and an independent reviewer keep the model from guessing."
+authors = ["Mark Alston"]
+readme = "README.md"
+packages = [{include = "contract_extraction", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+pydantic = ">=2.0"
+
+[tool.poetry.group.live]
+optional = true
+
+[tool.poetry.group.live.dependencies]
+anthropic = ">=0.42.0"
+python-dotenv = ">=1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.0"
+ruff = ">=0.4"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
