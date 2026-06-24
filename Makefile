@@ -7,7 +7,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install install-live test lint lint-fix check demo lock clean
+.PHONY: help install test lint lint-fix check demo lock clean
 
 help: ## Show this help
 	@echo "Contract Extraction Pipeline -- common tasks:"
@@ -29,9 +29,6 @@ check-poetry:
 
 install: check-poetry ## Install the project + dev tools (no API key needed)
 	poetry install --with dev
-
-install-live: check-poetry ## Install dev tools + the optional live deps (anthropic, claude-agent-sdk)
-	poetry install --with dev --with live
 
 test: check-poetry ## Run the full test suite (no API key needed)
 	poetry run pytest
