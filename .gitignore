@@ -18,3 +18,5 @@ build/
 # Claude
 .claude/worktrees
 .claude/settings.local.json
+
+conversation.md
