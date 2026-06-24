@@ -8,8 +8,8 @@ failures with the exact violated constraint, and verifies every record with an
 that truthful absence must survive end to end as `null`, never a guessed
 jurisdiction.
 
-- The design doc this implements: [`../deliverables/domain4-build-exercise.md`](../deliverables/domain4-build-exercise.md)
-- The exercise prompt: [`../.prompts/domain4-build-exercise.prompt.md`](../.prompts/domain4-build-exercise.prompt.md)
+- The design doc this implements: [`./deliverables/domain4-build-exercise.md`](./deliverables/domain4-build-exercise.md)
+- The exercise prompt: [`./.prompts/domain4-build-exercise.prompt.md`](./.prompts/domain4-build-exercise.prompt.md)
 
 ## Quick start
 
