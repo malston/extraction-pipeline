@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "extraction_pipeline",
+  "project_id": "a5ea60c9-e493-4532-b863-8bd0e9b69bb2"
+}
