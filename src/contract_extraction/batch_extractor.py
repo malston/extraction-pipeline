@@ -12,12 +12,11 @@ Usage:
   results = batch_extractor.extract_batch(documents)
 
 Example:
-  from contract_extraction.sample_documents import DOCUMENTS_BY_ID
+  from contract_extraction.sample_documents import DOCUMENTS
   from contract_extraction.batch_extractor import ClaudeBatchExtractor
 
   extractor = ClaudeBatchExtractor()
-  documents = list(DOCUMENTS_BY_ID.values())
-  results = extractor.extract_batch(documents)
+  results = extractor.extract_batch(DOCUMENTS)
 
   for result in results:
       if result['status'] == 'succeeded':
@@ -162,17 +161,25 @@ class ClaudeBatchExtractor:
                     "error": None,
                 }
             elif result.result.type == "errored":
-                # Batch-level error (not a format error from the model)
+                # Batch-level error (not a format error from the model). The
+                # errored result wraps an ErrorResponse, whose .error holds the
+                # typed error object carrying the human-readable message.
                 batch_results[doc_id] = {
                     "status": "errored",
                     "record": None,
-                    "error": result.result.error.message,
+                    "error": result.result.error.error.message,
                 }
             elif result.result.type == "expired":
                 batch_results[doc_id] = {
                     "status": "errored",
                     "record": None,
                     "error": "Batch request expired",
+                }
+            elif result.result.type == "canceled":
+                batch_results[doc_id] = {
+                    "status": "errored",
+                    "record": None,
+                    "error": "Batch request canceled",
                 }
 
         # Route format failures to sync retry
@@ -211,10 +218,10 @@ class ClaudeBatchExtractor:
 
 if __name__ == "__main__":
     # Demo: extract all sample documents using the Batch API
-    from contract_extraction.sample_documents import DOCUMENTS_BY_ID
+    from contract_extraction.sample_documents import DOCUMENTS
 
     extractor = ClaudeBatchExtractor()
-    documents = list(DOCUMENTS_BY_ID.values())
+    documents = DOCUMENTS
 
     print(f"Extracting {len(documents)} documents using Batch API...")
     results = extractor.extract_batch(documents)
