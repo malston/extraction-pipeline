@@ -204,8 +204,12 @@ class ClaudeBatchExtractor:
                         "error": str(e),
                     }
 
-        # Return results in document order (for consistency with input order)
-        return [batch_results[doc.document_id] for doc in documents]
+        # Return results in document order (for consistency with input order),
+        # tagging each with its document_id per the documented result contract.
+        return [
+            {"document_id": doc.document_id, **batch_results[doc.document_id]}
+            for doc in documents
+        ]
 
     @staticmethod
     def _extract_tool_input(message: anthropic.types.Message, doc_id: str) -> dict:
