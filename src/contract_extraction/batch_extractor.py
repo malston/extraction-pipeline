@@ -25,10 +25,14 @@ Example:
           print(f"{result['document_id']}: {result['error']}")
 """
 
-import time
-from typing import Any
+from __future__ import annotations
 
-import anthropic
+import time
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import anthropic
+
 from contract_extraction.extractor import Document
 from contract_extraction.live import (
     EXTRACTOR_SYSTEM,
@@ -46,6 +50,8 @@ class ClaudeBatchExtractor:
     """
 
     def __init__(self, model: str = "claude-opus-4-8"):
+        import anthropic
+
         self.client = anthropic.Anthropic()
         self.model = model
         self.sync_extractor = ClaudeExtractor(model=model)
@@ -100,6 +106,8 @@ class ClaudeBatchExtractor:
         validity (tool_choice forces the shape); format failures are retried
         later via the sync path.
         """
+        import anthropic
+
         requests = []
         for doc in documents:
             request = anthropic.types.messages.batch_create_params.Request(
@@ -118,7 +126,7 @@ class ClaudeBatchExtractor:
 
     def _wait_for_batch(
         self, batch_id: str, poll_interval: int, max_poll_wait: int
-    ) -> anthropic.types.Message:
+    ) -> anthropic.types.messages.MessageBatch:
         """Poll the batch until it completes.
 
         The Batches API processes asynchronously with a 24-hour window. Most
@@ -147,23 +155,37 @@ class ClaudeBatchExtractor:
         Batch results arrive unordered (keyed by custom_id). Format failures
         are extracted and retried synchronously using the Messages API.
         """
-        # Collect batch results keyed by document_id
+        # Collect batch results keyed by document_id. Three outcomes:
+        #   succeeded       -- a parseable extract record
+        #   format_failure  -- a succeeded response we could not parse into the
+        #                      tool shape; the multi-turn retry case, routed to
+        #                      the sync path below
+        #   errored         -- a terminal batch-level failure (errored/expired/
+        #                      canceled); not retryable here
         batch_results = {}
         for result in self.client.messages.batches.results(batch_id):
             doc_id = result.custom_id
             if result.result.type == "succeeded":
-                # Extract the tool input from the successful response
-                msg = result.result.message
-                record = self._extract_tool_input(msg, doc_id)
-                batch_results[doc_id] = {
-                    "status": "succeeded",
-                    "record": record,
-                    "error": None,
-                }
+                try:
+                    record = self._extract_tool_input(result.result.message, doc_id)
+                except ValueError as exc:
+                    # A success we can't parse is a format failure, not a crash:
+                    # mark it so this one document is retried synchronously while
+                    # the rest of the batch is still collected.
+                    batch_results[doc_id] = {
+                        "status": "format_failure",
+                        "record": None,
+                        "error": str(exc),
+                    }
+                else:
+                    batch_results[doc_id] = {
+                        "status": "succeeded",
+                        "record": record,
+                        "error": None,
+                    }
             elif result.result.type == "errored":
-                # Batch-level error (not a format error from the model). The
-                # errored result wraps an ErrorResponse, whose .error holds the
-                # typed error object carrying the human-readable message.
+                # The errored result wraps an ErrorResponse, whose .error holds
+                # the typed error object carrying the human-readable message.
                 batch_results[doc_id] = {
                     "status": "errored",
                     "record": None,
@@ -182,9 +204,12 @@ class ClaudeBatchExtractor:
                     "error": "Batch request canceled",
                 }
 
-        # Route format failures to sync retry
+        # Only genuine format failures are retried synchronously; batch-level
+        # errors are terminal and must not trigger a (costly, likely-doomed) retry.
         format_failures = [
-            doc for doc in documents if batch_results.get(doc.document_id, {}).get("error")
+            doc
+            for doc in documents
+            if batch_results.get(doc.document_id, {}).get("status") == "format_failure"
         ]
         if format_failures:
             print(f"Retrying {len(format_failures)} format failures synchronously...")
@@ -204,10 +229,12 @@ class ClaudeBatchExtractor:
                         "error": str(e),
                     }
 
-        # Return results in document order (for consistency with input order),
-        # tagging each with its document_id per the documented result contract.
+        # Return results in document order. A document with no result in the
+        # stream (custom_id never returned) is reported errored rather than
+        # raising, and every result is tagged with its document_id.
+        missing = {"status": "errored", "record": None, "error": "No batch result returned"}
         return [
-            {"document_id": doc.document_id, **batch_results[doc.document_id]}
+            {"document_id": doc.document_id, **batch_results.get(doc.document_id, missing)}
             for doc in documents
         ]
 
@@ -234,7 +261,7 @@ if __name__ == "__main__":
     succeeded = [r for r in results if r["status"] == "succeeded"]
     failed = [r for r in results if r["status"] == "errored"]
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Succeeded: {len(succeeded)}")
     print(f"  Failed: {len(failed)}")
 
